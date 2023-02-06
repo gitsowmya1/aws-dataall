@@ -19,7 +19,7 @@ services:
       AWS_DEFAULT_REGION: "eu-west-1"
     volumes:
       - ./backend:/code
-      - $HOME/.aws/credentials:/root/.aws/credentials:ro
+      - ~/.aws/credentials:/root/.aws/credentials:ro
     restart:
       on-failure:60
     platform:
@@ -39,7 +39,7 @@ services:
       AWS_DEFAULT_REGION: "eu-west-1"
     volumes:
       - ./backend:/code
-      - $HOME/.aws/credentials:/root/.aws/credentials:ro
+      - ~/.aws/credentials:/root/.aws/credentials:ro
     depends_on:
       - db
       - elasticsearch
