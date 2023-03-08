@@ -5,18 +5,17 @@ from sqlalchemy import or_, case, func
 from sqlalchemy.orm import Query
 from sqlalchemy.sql import and_
 
-from .. import exceptions, permissions, models
+from .. import exceptions, permissions, models, api
 from . import (
     has_resource_perm,
     has_tenant_perm,
     ResourcePolicy,
     Permission,
-    KeyValueTag,
+    KeyValueTag
 )
 from ..api.organization import Organization
 from ..models import EnvironmentGroup
 from ..models.Enums import (
-    ShareObjectStatus,
     ShareableType,
     EnvironmentType,
     EnvironmentPermission,
@@ -861,6 +860,7 @@ class Environment:
     def paginated_shared_with_environment_datasets(
         session, username, groups, uri, data=None, check_perm=None
     ) -> dict:
+        share_item_shared_states = api.ShareItemSM.get_share_item_shared_states()
         q = (
             session.query(
                 models.ShareObjectItem.shareUri.label('shareUri'),
@@ -925,12 +925,7 @@ class Environment:
             )
             .filter(
                 and_(
-                    models.ShareObjectItem.status.in_(
-                        [
-                            ShareObjectStatus.Share_Succeeded.value,
-                            ShareObjectStatus.Approved.value,
-                        ]
-                    ),
+                    models.ShareObjectItem.status.in_(share_item_shared_states),
                     models.ShareObject.environmentUri == uri,
                 )
             )
@@ -945,6 +940,10 @@ class Environment:
             q = q.filter(
                 or_(*[models.ShareObjectItem.itemType == t for t in itemTypes])
             )
+
+        if data.get("uniqueDatasets", False):
+            q = q.distinct(models.ShareObject.datasetUri)
+
         if data.get('term'):
             term = data.get('term')
             q = q.filter(models.ShareObjectItem.itemName.ilike('%' + term + '%'))
@@ -957,6 +956,7 @@ class Environment:
     def paginated_shared_with_environment_group_datasets(
         session, username, groups, envUri, groupUri, data=None, check_perm=None
     ) -> dict:
+        share_item_shared_states = api.ShareItemSM.get_share_item_shared_states()
         q = (
             session.query(
                 models.ShareObjectItem.shareUri.label('shareUri'),
@@ -1021,12 +1021,7 @@ class Environment:
             )
             .filter(
                 and_(
-                    models.ShareObjectItem.status.in_(
-                        [
-                            ShareObjectStatus.Share_Succeeded.value,
-                            ShareObjectStatus.Approved.value,
-                        ]
-                    ),
+                    models.ShareObjectItem.status.in_(share_item_shared_states),
                     models.ShareObject.environmentUri == envUri,
                     models.ShareObject.principalId == groupUri,
                 )
@@ -1083,6 +1078,7 @@ class Environment:
     def paginated_environment_data_items(
         session, username, groups, uri, data=None, check_perm=None
     ):
+        share_item_shared_states = api.ShareItemSM.get_share_item_shared_states()
         q = (
             session.query(
                 models.ShareObjectItem.shareUri.label('shareUri'),
@@ -1146,7 +1142,7 @@ class Environment:
             )
             .filter(
                 and_(
-                    models.ShareObjectItem.status == ShareObjectStatus.Approved.value,
+                    models.ShareObjectItem.status.in_(share_item_shared_states),
                     models.ShareObject.environmentUri == uri,
                 )
             )

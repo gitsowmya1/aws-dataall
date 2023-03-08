@@ -23,14 +23,15 @@ class LakeFormation:
 
             response = lf_client.describe_resource(ResourceArn=resource_arn)
 
-            log.debug(f'LF data location already registered: {response}')
+            log.info(f'LF data location already registered: {response}')
 
             return response['ResourceInfo']
 
         except ClientError as e:
-            log.error(
+            log.info(
                 f'LF data location for resource {resource_arn} not found due to {e}'
             )
+            return False
 
     @staticmethod
     def grant_pivot_role_all_database_permissions(accountid, region, database):
@@ -270,50 +271,51 @@ class LakeFormation:
         logging.info(f'Revoking source table access: {data} ...')
         target_accountid = data['target_accountid']
         region = data['region']
-        target_principal = data['target_principal']
+        target_principals = data['target_principals']
         source_database = data['source_database']
         source_table = data['source_table']
         source_accountid = data['source_accountid']
+        for target_principal in target_principals:
+            try:
 
-        try:
-            aws_session = SessionHelper.remote_session(target_accountid)
-            lakeformation = aws_session.client('lakeformation', region_name=region)
+                aws_session = SessionHelper.remote_session(target_accountid)
+                lakeformation = aws_session.client('lakeformation', region_name=region)
 
-            logging.info('Revoking DESCRIBE permission...')
-            lakeformation.revoke_permissions(
-                Principal=dict(DataLakePrincipalIdentifier=target_principal),
-                Resource=dict(
-                    Table=dict(
-                        CatalogId=source_accountid,
-                        DatabaseName=source_database,
-                        Name=source_table,
-                    )
-                ),
-                Permissions=['DESCRIBE'],
-                PermissionsWithGrantOption=[],
-            )
-            logging.info('Successfully revoked DESCRIBE permissions')
+                logging.info('Revoking DESCRIBE permission...')
+                lakeformation.revoke_permissions(
+                    Principal=dict(DataLakePrincipalIdentifier=target_principal),
+                    Resource=dict(
+                        Table=dict(
+                            CatalogId=source_accountid,
+                            DatabaseName=source_database,
+                            Name=source_table,
+                        )
+                    ),
+                    Permissions=['DESCRIBE'],
+                    PermissionsWithGrantOption=[],
+                )
+                logging.info('Successfully revoked DESCRIBE permissions')
 
-            logging.info('Revoking SELECT permission...')
-            lakeformation.revoke_permissions(
-                Principal=dict(DataLakePrincipalIdentifier=target_principal),
-                Resource=dict(
-                    TableWithColumns=dict(
-                        CatalogId=source_accountid,
-                        DatabaseName=source_database,
-                        Name=source_table,
-                        ColumnWildcard={},
-                    )
-                ),
-                Permissions=['SELECT'],
-                PermissionsWithGrantOption=[],
-            )
-            logging.info('Successfully revoked DESCRIBE permissions')
+                logging.info('Revoking SELECT permission...')
+                lakeformation.revoke_permissions(
+                    Principal=dict(DataLakePrincipalIdentifier=target_principal),
+                    Resource=dict(
+                        TableWithColumns=dict(
+                            CatalogId=source_accountid,
+                            DatabaseName=source_database,
+                            Name=source_table,
+                            ColumnWildcard={},
+                        )
+                    ),
+                    Permissions=['SELECT'],
+                    PermissionsWithGrantOption=[],
+                )
+                logging.info('Successfully revoked DESCRIBE permissions')
 
-        except ClientError as e:
-            logging.error(
-                f'Failed to revoke permissions for {target_principal} '
-                f'on source table {source_accountid}/{source_database}/{source_table} '
-                f'due to: {e}'
-            )
-            raise e
+            except ClientError as e:
+                logging.error(
+                    f'Failed to revoke permissions for {target_principal} '
+                    f'on source table {source_accountid}/{source_database}/{source_table} '
+                    f'due to: {e}'
+                )
+                raise e
